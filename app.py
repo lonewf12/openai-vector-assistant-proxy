@@ -1,48 +1,56 @@
 from flask import Flask, request, jsonify
-import openai
-import time
-import os
+import os, time
+from openai import OpenAI
 
 app = Flask(__name__)
 
-openai.api_key = os.getenv("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")
-ASSISTANT_ID = os.getenv("asst_deIP0iaZjQpt4uSaWDjiiOLa")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+ASSISTANT_ID = os.environ.get("ASSISTANT_ID")  # впадемо вручну, якщо None
 
-@app.route("/search", methods=["POST"])
+@app.post("/search")
 def search():
     try:
-        query = request.json.get("query", "")
+        if not ASSISTANT_ID:
+            return jsonify({"answer": "ASSISTANT_ID не задано у змінних оточення"}), 500
 
-        thread = openai.beta.threads.create()
+        body = request.get_json(force=True) or {}
+        query = body.get("query", "").strip()
+        if not query:
+            return jsonify({"answer": "Порожній запит"}), 400
 
-        openai.beta.threads.messages.create(
+        thread = client.beta.threads.create()
+
+        client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
             content=query
         )
 
-        run = openai.beta.threads.runs.create(
+        run = client.beta.threads.runs.create(
             thread_id=thread.id,
             assistant_id=ASSISTANT_ID
         )
 
+        # Полінг статусу
         while True:
-            status = openai.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-            if status.status == "completed":
+            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+            if run.status == "completed":
                 break
-            elif status.status in ["failed", "cancelled"]:
+            if run.status in ("failed", "cancelled", "expired"):
                 return jsonify({"answer": "Асистент не зміг виконати запит."}), 500
             time.sleep(1)
 
-        messages = openai.beta.threads.messages.list(thread_id=thread.id)
-        latest = messages.data[0].content[0].text.value
+        messages = client.beta.threads.messages.list(thread_id=thread.id)
+        # шукаємо перше повідомлення від асистента
+        latest_msg = next((m for m in messages.data if m.role == "assistant"), messages.data[0])
+        latest = latest_msg.content[0].text.value
 
         return jsonify({"answer": latest})
-    
+
     except Exception as e:
         print("Помилка:", e)
         return jsonify({"answer": "Внутрішня помилка сервера.", "error": str(e)}), 500
 
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
