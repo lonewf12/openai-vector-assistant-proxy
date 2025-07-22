@@ -5,8 +5,8 @@ import os
 
 app = Flask(__name__)
 
-openai.api_key = os.getenv("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")
-ASSISTANT_ID = os.getenv("asst_deIP0iaZjQpt4uSaWDjiiOLa")
+openai.api_key = os.getenv(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)
+ASSISTANT_ID = os.getenv(asst_deIP0iaZjQpt4uSaWDjiiOLa)
 
 @app.route("/search", methods=["POST"])
 def search():
