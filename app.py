@@ -7,8 +7,16 @@ app = Flask(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 ASSISTANT_ID = os.environ.get("ASSISTANT_ID")  # впадемо вручну, якщо None
 
-@app.post("/search")
-def search():
+@app.get("/")
+def root():
+    return jsonify({"status": "ok"})
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+@app.post("/ask")
+def ask():
     try:
         if not ASSISTANT_ID:
             return jsonify({"answer": "ASSISTANT_ID не задано у змінних оточення"}), 500
